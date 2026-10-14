@@ -3,7 +3,7 @@
 import { $, esc, icons, uid, debounce, toast, modal, download, copyText, fmtTime, fileStamp, slugify, store } from './util.js';
 import { NotebookView } from './notebook.js';
 import { RRunner } from './runner.js';
-import { toJSON, toR, toHTML } from './render.js';
+import { toJSON, toR, toHTML, parseNotebookFile } from './render.js';
 import { setFontSize } from './shell.js';
 
 export function setup(ctx) {
@@ -46,6 +46,7 @@ export function setup(ctx) {
     <button class="btn" id="btn-hand"><i data-lucide="hand"></i><span class="lbl">Levantar la mano</span></button>
     <div class="emoji-bar">${EMOJIS.map(([e, t]) => `<button data-e="${e}" title="${t}">${e}</button>`).join('')}</div>
     <span class="sep"></span>
+    <button class="btn" id="btn-open" title="Abrir un archivo .R, .Rmd o .json de su computadora en «Mi espacio»"><i data-lucide="folder-open"></i><span class="lbl">Abrir archivo</span></button>
     <button class="btn" id="btn-dl"><i data-lucide="download"></i><span class="lbl">Descargar</span></button>
     <span class="spacer"></span>
     <button class="btn" id="btn-panel"><i data-lucide="panel-right"></i><span class="lbl">Mi espacio</span></button>`;
@@ -60,6 +61,7 @@ export function setup(ctx) {
   $('#btn-hand').onclick = () => socket.emit('hand', !hand);
   $('#btn-panel').onclick = () => panel.toggle();
   $('#btn-dl').onclick = downloadModal;
+  $('#btn-open').onclick = () => { panel.show('mine'); pickLocalFile(); };
   let lastReact = 0;
   $('#toolbar').querySelectorAll('[data-e]').forEach(b => b.onclick = () => {
     if (Date.now() - lastReact < 1500) return;
@@ -258,9 +260,15 @@ export function setup(ctx) {
         <div class="row">
           <button class="btn sm icon" data-wide title="${wide ? 'Reducir panel' : 'Ampliar panel'}"><i data-lucide="${wide ? 'minimize-2' : 'maximize-2'}"></i></button>
           <button class="btn sm" data-stop title="Detener ejecución"><i data-lucide="square"></i></button>
-          <button class="btn sm" data-r><i data-lucide="file-code"></i> .R</button>
         </div>
       </div>
+      <div class="row" style="margin-bottom:8px;flex-wrap:wrap">
+        <button class="btn sm" data-open title="Abrir .R, .Rmd, .qmd o .json desde su computadora"><i data-lucide="folder-open"></i> Abrir</button>
+        <button class="btn sm" data-r title="Guardar como script R"><i data-lucide="file-code"></i> Guardar .R</button>
+        <button class="btn sm" data-json title="Guardar como cuaderno (se puede volver a abrir)"><i data-lucide="braces"></i> Guardar .json</button>
+        <button class="btn sm danger" data-clear title="Vaciar mi espacio"><i data-lucide="trash-2"></i></button>
+      </div>
+      <div class="small muted" style="margin:-2px 0 8px">También puede arrastrar un archivo y soltarlo aquí.</div>
       ${!S.settings.allowLocalRun ? '<div class="announce warn" style="border-radius:8px;margin-bottom:8px">El docente desactivó temporalmente la ejecución local.</div>' : ''}
       ${S.packages?.length ? `<div class="small muted" style="margin-bottom:8px">Paquetes del aula: ${S.packages.map(p => `<span class="pkg-tag">${esc(p)}</span>`).join('')}</div>` : ''}`;
     el.appendChild(scratchHost);
@@ -268,6 +276,69 @@ export function setup(ctx) {
     el.querySelector('[data-wide]').onclick = () => { store.set('rav:wide', !wide); panel.refresh('mine'); };
     el.querySelector('[data-stop]').onclick = () => localRunner?.interrupt();
     el.querySelector('[data-r]').onclick = () => download(`mi_espacio_${code}_${fileStamp()}.R`, toR(scratch.list, `Mi espacio — ${S.title}`));
+    el.querySelector('[data-json]').onclick = () => download(`mi_espacio_${code}_${fileStamp()}.json`, toJSON(scratch.list, `Mi espacio — ${S.title}`), 'application/json');
+    el.querySelector('[data-open]').onclick = pickLocalFile;
+    el.querySelector('[data-clear]').onclick = () => {
+      if (!confirm('¿Vaciar «Mi espacio»? Se borrarán sus celdas personales (no afecta la clase).')) return;
+      scratch.setAll([{ id: uid('m'), type: 'code', code: '' }]);
+      saveScratch();
+    };
+    // Arrastrar y soltar archivos sobre el panel
+    el.ondragover = e => { e.preventDefault(); el.style.outline = '2px dashed var(--brand-2)'; };
+    el.ondragleave = () => { el.style.outline = ''; };
+    el.ondrop = e => {
+      e.preventDefault();
+      el.style.outline = '';
+      const f = e.dataTransfer?.files?.[0];
+      if (f) openLocalFile(f);
+    };
+  }
+
+  // ── Abrir archivos locales (.R, .Rmd, .qmd, .json, .ipynb) en «Mi espacio» ──
+  const fileInput = Object.assign(document.createElement('input'), {
+    type: 'file', accept: '.R,.r,.Rmd,.rmd,.qmd,.json,.ipynb,.txt', className: 'hidden',
+  });
+  document.body.appendChild(fileInput);
+  fileInput.onchange = () => { const f = fileInput.files[0]; fileInput.value = ''; if (f) openLocalFile(f); };
+  function pickLocalFile() { fileInput.click(); }
+
+  async function openLocalFile(file) {
+    if (!/\.(r|rmd|qmd|json|ipynb|txt)$/i.test(file.name)) return toast('Formato no admitido. Use .R, .Rmd, .qmd o .json', 'err', 5000);
+    if (file.size > 2 * 1024 * 1024) return toast('El archivo supera 2 MB', 'err');
+    let parsed;
+    try {
+      parsed = parseNotebookFile(await file.text(), file.name);
+    } catch (e) {
+      return toast(`No se pudo leer «${file.name}»: ${e.message}`, 'err', 6000);
+    }
+    const cells = parsed.cells.map(c => ({ ...c, id: uid('m'), output: null, execCount: null }));
+    if (!cells.length) return toast('El archivo no contiene código', 'err');
+    const hasContent = scratch.list.some(c => c.code.trim());
+    const m = modal({
+      title: `Abrir «${file.name}»`, icon: 'folder-open',
+      body: `
+        <p style="margin-top:0">${cells.length} celda(s): ${cells.filter(c => c.type === 'code').length} de código R y ${cells.filter(c => c.type === 'markdown').length} de texto.</p>
+        <div class="list" style="gap:6px">
+          <label><input type="radio" name="om" value="append" ${hasContent ? 'checked' : ''}> Agregar al final de «Mi espacio»</label>
+          <label><input type="radio" name="om" value="replace" ${hasContent ? '' : 'checked'}> Reemplazar el contenido de «Mi espacio»</label>
+          <label style="margin-top:6px"><input type="checkbox" id="om-run" ${S.settings.allowLocalRun ? '' : 'disabled'}> Ejecutar todas las celdas al abrir</label>
+        </div>
+        <p class="small muted">El archivo se abre sólo en su navegador: ni el docente ni sus compañeros lo ven, salvo que usted envíe una celda.</p>`,
+      foot: '<button class="btn" data-close>Cancelar</button><button class="btn primary" id="om-ok"><i data-lucide="check"></i> Abrir</button>',
+    });
+    m.el.querySelectorAll('.modal-foot [data-close]').forEach(b => b.onclick = m.close);
+    m.el.querySelector('#om-ok').onclick = async () => {
+      const mode = m.el.querySelector('input[name="om"]:checked').value;
+      const runAll = m.el.querySelector('#om-run').checked;
+      m.close();
+      if (mode === 'replace') scratch.setAll(cells);
+      else { let after = scratch.list.at(-1)?.id || null; for (const c of cells) { scratch.add(c, after); after = c.id; } }
+      saveScratch();
+      panel.show('mine');
+      toast(`«${file.name}» abierto en Mi espacio`, 'ok');
+      document.getElementById(`cell-${cells[0].id}`)?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      if (runAll) for (const c of cells) if (c.type === 'code' && c.code.trim()) await scratchRun(c.id);
+    };
   }
 
   function renderQuestions(el) {
@@ -309,6 +380,7 @@ export function setup(ctx) {
           <li><b>Seguir al docente</b> desplaza la página automáticamente a la celda en la que trabaja.</li>
           <li>Pulse <b>Probar</b> en cualquier celda para copiarla a <b>Mi espacio</b> y ejecutarla en su navegador. Puede modificarla sin afectar la clase.</li>
           <li>Con <i data-lucide="send" style="width:13px;height:13px"></i> envía su código al docente para revisión.</li>
+          <li><b>Abrir archivo</b> carga en «Mi espacio» un <code>.R</code>, <code>.Rmd</code>, <code>.qmd</code> o <code>.json</code> de su computadora (también puede arrastrarlo al panel). Con <b>Guardar .R / .json</b> conserva su trabajo.</li>
           <li>Haga clic en un gráfico para ampliarlo; pase el ratón para descargarlo en PNG.</li>
         </ul></div>
       <div class="panel-section"><h4>Atajos en Mi espacio</h4>
