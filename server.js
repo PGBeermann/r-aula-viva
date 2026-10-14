@@ -319,11 +319,18 @@ const requireTeacher = (req, res, next) =>
 app.get('/health', (req, res) => res.json({ ok: true, version: APP_VERSION, rooms: rooms.size, uptime: Math.round(process.uptime()) }));
 
 const noCache = { headers: { 'Cache-Control': 'no-cache' } };
+// Los archivos JS/CSS del aula se sirven bajo /v/<versión>/… : tras cada despliegue cambia la
+// dirección, de modo que ningún navegador puede seguir usando una copia antigua en caché.
+app.use('/v/:ver', (req, res, next) => (req.params.ver === APP_VERSION ? next() : res.redirect(302, `/v/${APP_VERSION}${req.path}`)),
+  express.static(path.join(__dirname, 'public'), { index: false, maxAge: '30d', immutable: true }));
+const AULA_HTML = fs.readFileSync(path.join(__dirname, 'public', 'aula.html'), 'utf8')
+  .replace('src="/js/aula.js"', `src="/v/${APP_VERSION}/js/aula.js"`)
+  .replace('href="/css/app.css"', `href="/v/${APP_VERSION}/css/app.css"`);
 app.get('/docente', (req, res) => res.sendFile(path.join(__dirname, 'public', 'docente.html'), noCache));
 app.get('/aula/:code', (req, res) => {
   const code = String(req.params.code || '').toUpperCase();
   if (!ROOM_CODE_RE.test(code)) return res.redirect('/');
-  res.sendFile(path.join(__dirname, 'public', 'aula.html'), noCache);
+  res.set('Cache-Control', 'no-cache').type('html').send(AULA_HTML);
 });
 
 // Sesión docente
