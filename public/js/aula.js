@@ -24,7 +24,8 @@ async function boot() {
   });
 
   const panel = createPanel();
-  const ctx = { code, socket, panel, name, role: asTeacher ? 'teacher' : 'student', state: null };
+  const ctx = { code, socket, panel, name, role: asTeacher ? 'teacher' : 'student', state: null, version: me.version || '' };
+  $('#role-label').title = `R Aula Viva v${ctx.version}`;
 
   const conn = (cls, label) => { $('#conn-chip').className = `chip ${cls}`; $('#conn-label').textContent = label; };
   socket.on('connect', () => conn('ok', 'En línea'));

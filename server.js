@@ -40,6 +40,7 @@ const DEFAULT_PACKAGES = (process.env.DEFAULT_PACKAGES || '')
   .split(',').map(s => s.trim()).filter(Boolean);
 const PUBLIC_URL = (process.env.PUBLIC_URL || '').replace(/\/+$/, '');
 const IS_PROD = process.env.NODE_ENV === 'production';
+const APP_VERSION = require('./package.json').version;
 
 if (!TEACHER_PASSWORD) {
   console.warn('⚠  TEACHER_PASSWORD no está definido: el acceso docente quedará DESHABILITADO.');
@@ -305,18 +306,24 @@ app.use('/vendor/webr', express.static(nm('webr/dist'), {
   ...vendorOpts,
   setHeaders: (res, file) => { if (file.endsWith('.wasm')) res.setHeader('Content-Type', 'application/wasm'); },
 }));
-app.use(express.static(path.join(__dirname, 'public'), { maxAge: IS_PROD ? '1h' : 0, index: 'index.html' }));
+// HTML, JS y CSS propios: el navegador debe revalidar siempre (ETag) para que cada
+// despliegue se vea de inmediato, sin necesidad de borrar la caché.
+app.use(express.static(path.join(__dirname, 'public'), {
+  index: 'index.html',
+  setHeaders: res => res.setHeader('Cache-Control', 'no-cache'),
+}));
 
 const requireTeacher = (req, res, next) =>
   isTeacherReq(req) ? next() : res.status(401).json({ ok: false, error: 'Se requiere sesión docente.' });
 
-app.get('/health', (req, res) => res.json({ ok: true, rooms: rooms.size, uptime: Math.round(process.uptime()) }));
+app.get('/health', (req, res) => res.json({ ok: true, version: APP_VERSION, rooms: rooms.size, uptime: Math.round(process.uptime()) }));
 
-app.get('/docente', (req, res) => res.sendFile(path.join(__dirname, 'public', 'docente.html')));
+const noCache = { headers: { 'Cache-Control': 'no-cache' } };
+app.get('/docente', (req, res) => res.sendFile(path.join(__dirname, 'public', 'docente.html'), noCache));
 app.get('/aula/:code', (req, res) => {
   const code = String(req.params.code || '').toUpperCase();
   if (!ROOM_CODE_RE.test(code)) return res.redirect('/');
-  res.sendFile(path.join(__dirname, 'public', 'aula.html'));
+  res.sendFile(path.join(__dirname, 'public', 'aula.html'), noCache);
 });
 
 // Sesión docente
@@ -334,7 +341,7 @@ app.post('/api/logout', (req, res) => {
   res.setHeader('Set-Cookie', `${COOKIE}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0`);
   res.json({ ok: true });
 });
-app.get('/api/me', (req, res) => res.json({ teacher: isTeacherReq(req), teacherEnabled: !!TEACHER_PASSWORD }));
+app.get('/api/me', (req, res) => res.json({ teacher: isTeacherReq(req), teacherEnabled: !!TEACHER_PASSWORD, version: APP_VERSION }));
 
 // Aulas
 app.get('/api/rooms', requireTeacher, (req, res) => {
@@ -749,7 +756,7 @@ io.on('connection', socket => {
 // ─── Arranque y apagado ordenado ──────────────────────────────────────────────
 loadRooms();
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`R Aula Viva escuchando en http://0.0.0.0:${PORT}`);
+  console.log(`R Aula Viva v${APP_VERSION} escuchando en http://0.0.0.0:${PORT}`);
   console.log(`Datos en ${DATA_DIR} · webR desde ${WEBR_BASE_URL}`);
 });
 

@@ -386,7 +386,8 @@ export function setup(ctx) {
       <div class="panel-section"><h4>Atajos en Mi espacio</h4>
         <ul class="small" style="padding-left:18px;margin:0">
           <li><b>Ctrl+Enter</b>: ejecutar la celda</li><li><b>Mayús+Enter</b>: ejecutar y pasar a la siguiente</li>
-          <li><b>Ctrl+/</b>: comentar / descomentar</li></ul></div>`;
+          <li><b>Ctrl+/</b>: comentar / descomentar</li></ul></div>
+      <p class="small muted">R Aula Viva versión ${esc(ctx.version)}</p>`;
   }
 
   // ── Descargas ──

@@ -426,7 +426,8 @@ export function setup(ctx) {
       <div class="panel-section">
         <h4>Paquetes del aula</h4>
         <div>${(S.packages || []).map(p => `<span class="pkg-tag">${esc(p)}</span>`).join('') || '<span class="small muted">Ninguno. Use el botón «Paquetes».</span>'}</div>
-      </div>`;
+      </div>
+      <p class="small muted">R Aula Viva versión ${esc(ctx.version)}</p>`;
     el.querySelector('#al').value = S.announce?.level || 'info';
     el.querySelector('[data-share]').onclick = () => shareModal(code, S.title);
     el.querySelector('[data-copylink]').onclick = () => copyText(`${location.origin}/aula/${code}`);
