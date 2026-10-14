@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>R Aula Viva | UNACHI</title>
+  <link rel="icon" href="/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <div class="hero">
+    <div class="card">
+      <div class="brand">
+        <div class="brand-logo">R</div>
+        <div class="brand-title"><strong>R Aula Viva</strong><span>Universidad Autónoma de Chiriquí</span></div>
+      </div>
+      <h1>Unirse a la clase</h1>
+      <p class="lead">Escriba el código que le dio su docente y su nombre completo.</p>
+      <form id="join">
+        <div class="field">
+          <label for="code">Código del aula</label>
+          <input id="code" class="input code-input" maxlength="10" autocomplete="off" required placeholder="ABC123">
+        </div>
+        <div class="field">
+          <label for="name">Nombre y apellido</label>
+          <input id="name" class="input" maxlength="40" autocomplete="name" required placeholder="Ej.: María Rodríguez">
+        </div>
+        <div id="err" class="small hidden" style="color:var(--danger);margin-bottom:10px"></div>
+        <button class="btn primary" style="width:100%;padding:11px" type="submit">Entrar al aula</button>
+      </form>
+      <p class="foot-note">¿Es docente? <a href="/docente">Ingresar al panel docente</a></p>
+    </div>
+  </div>
+  <script>
+    const $ = id => document.getElementById(id);
+    try { $('name').value = JSON.parse(localStorage.getItem('rav:name')) || ''; } catch {}
+    const q = new URLSearchParams(location.search).get('c');
+    if (q) $('code').value = q.toUpperCase();
+    $('join').addEventListener('submit', async e => {
+      e.preventDefault();
+      const code = $('code').value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+      const name = $('name').value.trim();
+      $('err').classList.add('hidden');
+      const r = await fetch(`/api/rooms/${encodeURIComponent(code)}/exists`).catch(() => null);
+      if (!r || !r.ok) { $('err').textContent = 'No existe un aula con ese código.'; $('err').classList.remove('hidden'); return; }
+      try { localStorage.setItem('rav:name', JSON.stringify(name)); } catch {}
+      location.href = `/aula/${code}`;
+    });
+  </script>
+</body>
+</html>

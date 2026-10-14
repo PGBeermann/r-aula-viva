@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "savedAt": "2026-04-14T15:19:21.133Z",
+  "cells": [
+    {
+      "id": "cell-1",
+      "code": "plot(mtcars$mpg, mtcars$hp, col='blue', pch=19, main='Prueba de Gráfico Base')\n\nlibrary(ggplot2)\nggplot(mtcars, aes(mpg, hp)) + geom_point()"
+    },
+    {
+      "id": "cell-2",
+      "code": "x<-rnorm(10000)\nhist(x,freq=FALSE,breaks=50,col=\"orange\")\nlines(density(x),lwd=2,col=\"blue\")"
+    }
+  ]
+}

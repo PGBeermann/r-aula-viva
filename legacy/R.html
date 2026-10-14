@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>R-Notebook Online | UNACHI</title>
+
+    <!--
+        FIX 1 — "cdn.tailwindcss.com should not be used in production":
+        El Play CDN de Tailwind realiza compilación JIT en el navegador y está
+        diseñado exclusivamente para desarrollo. Se reemplaza por el CSS
+        precompilado completo (v3.4.17) desde jsDelivr, lo que elimina la
+        advertencia sin pérdida de ninguna clase utilitaria.
+    -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- COOP/COEP headers are set server-side in server.js — no service worker needed -->
+
+<script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.12/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.12/mode/r/r.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.12/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.12/theme/dracula.min.css">
+
+    <style>
+        .CodeMirror { height: auto; border-radius: 6px; font-size: 14px; padding: 5px; }
+        .cell-container { border-left: 5px solid #cbd5e1; transition: all 0.2s; }
+        .cell-container:focus-within { border-left-color: #2563eb; }
+        #loading-overlay { background: rgba(255,255,255,0.95); z-index: 9999; }
+
+        /* Contenedor de salida de texto */
+        .output-stdout {
+            font-family: 'Fira Code', 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 12px 14px;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        .output-stdout:empty { display: none; }
+
+        /* Líneas de salida estándar */
+        .out-line { display: block; color: #334155; }
+        /* Líneas de advertencia / mensaje */
+        .out-warn { display: block; color: #b45309; }
+        /* Líneas de error */
+        .out-err  { display: block; color: #dc2626; font-weight: 600; }
+
+        /* Modal de paquetes */
+        #pkg-modal { background: rgba(15,23,42,0.5); }
+        #pkg-modal.hidden { display: none; }
+        #pkg-log {
+            font-family: 'Fira Code', 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.6;
+            background: #0f172a;
+            color: #94a3b8;
+            border-radius: 6px;
+            padding: 10px 12px;
+            height: 180px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        #pkg-log .log-ok   { color: #4ade80; }
+        #pkg-log .log-err  { color: #f87171; }
+        #pkg-log .log-info { color: #60a5fa; }
+
+        /* Imágenes generadas por R */
+        .r-plot-img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            margin: 14px auto 0;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen">
+
+    <div id="loading-overlay" class="fixed inset-0 flex flex-col items-center justify-center">
+        <div class="animate-spin rounded-full h-14 w-14 border-t-4 border-blue-600 mb-4"></div>
+        <p class="text-slate-700 font-semibold">Iniciando WebR...</p>
+    </div>
+
+    <nav class="bg-white border-b sticky top-0 z-50 px-6 py-3 shadow-sm">
+        <div class="max-w-5xl mx-auto flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="bg-blue-600 p-2 rounded-lg text-white">
+                    <i data-lucide="terminal"></i>
+                </div>
+                <h1 class="font-bold text-xl text-slate-800">R-Notebook</h1>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="addCell()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm font-semibold"> + Celda </button>
+                <button onclick="openPkgModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm font-semibold flex items-center gap-1"><i data-lucide="package"></i> Paquetes </button>
+                <button onclick="saveToFile()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm font-semibold flex items-center gap-1"><i data-lucide="save"></i> Guardar </button>
+                <button onclick="document.getElementById('load-input').click()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm font-semibold flex items-center gap-1"><i data-lucide="folder-open"></i> Cargar </button>
+                <button onclick="openUrlModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm font-semibold flex items-center gap-1"><i data-lucide="link"></i> Desde URL </button>
+                <button onclick="openUploadModal()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold flex items-center gap-1"><i data-lucide="upload-cloud"></i> Subir </button>
+                <button onclick="exportHTML()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold flex items-center gap-1"><i data-lucide="download"></i> Exportar </button>
+                <input id="load-input" type="file" accept=".json" class="hidden" onchange="loadFromFile(event)">
+            </div>
+        </div>
+    </nav>
+
+    <!-- Modal: instalación de paquetes -->
+    <div id="pkg-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="font-bold text-lg text-slate-800 flex items-center gap-2">
+                    <i data-lucide="package" class="text-blue-600"></i> Instalar paquetes de R
+                </h2>
+                <button onclick="closePkgModal()" class="text-slate-400 hover:text-slate-600"><i data-lucide="x"></i></button>
+            </div>
+
+            <p class="text-sm text-slate-500 mb-3">Ingresa los nombres separados por comas (ej: <code class="bg-slate-100 px-1 rounded">ggplot2, dplyr, tidyr</code>)</p>
+
+            <div class="flex gap-2 mb-4">
+                <input id="pkg-input" type="text" placeholder="nombre del paquete"
+                    class="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    onkeydown="if(event.key==='Enter') installPackages()">
+                <button id="pkg-btn" onclick="installPackages()"
+                    class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold flex items-center gap-1">
+                    <i data-lucide="download"></i> Instalar
+                </button>
+            </div>
+
+            <div id="pkg-log" class="hidden"></div>
+
+            <div id="pkg-installed" class="mt-4 hidden">
+                <p class="text-xs font-semibold text-slate-400 uppercase mb-2">Paquetes instalados en esta sesión</p>
+                <div id="pkg-tags" class="flex flex-wrap gap-2"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: subir notebook al servidor -->
+    <div id="upload-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background:rgba(15,23,42,0.5)">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="font-bold text-lg text-slate-800 flex items-center gap-2">
+                    <i data-lucide="upload-cloud" class="text-emerald-600"></i> Subir notebook al servidor
+                </h2>
+                <button onclick="closeUploadModal()" class="text-slate-400 hover:text-slate-600"><i data-lucide="x"></i></button>
+            </div>
+
+            <p class="text-sm text-slate-500 mb-4">
+                El notebook se enviará como JSON al endpoint configurado y recibirás una URL para compartirlo o cargarlo después.
+            </p>
+
+            <!-- Endpoint URL configurable -->
+            <div class="mb-4">
+                <label class="block text-xs font-semibold text-slate-500 mb-1">Endpoint de subida</label>
+                <input id="upload-endpoint" type="url" value="upload.php"
+                    class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400">
+                <p class="text-xs text-slate-400 mt-1">Usa <code class="bg-slate-100 px-1 rounded">/upload</code> para el servidor local, o la URL completa de <code class="bg-slate-100 px-1 rounded">upload.php</code> en producción.</p>
+            </div>
+
+            <button id="upload-btn" onclick="uploadNotebook()"
+                class="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold flex items-center justify-center gap-2">
+                <i data-lucide="upload-cloud"></i> Subir ahora
+            </button>
+
+            <!-- Estado y resultado -->
+            <div id="upload-status" class="hidden mt-4 text-sm rounded-lg px-3 py-2"></div>
+
+            <div id="upload-result" class="hidden mt-4">
+                <label class="block text-xs font-semibold text-slate-500 mb-1">URL del notebook subido</label>
+                <div class="flex gap-2">
+                    <input id="upload-url-out" type="text" readonly
+                        class="flex-1 border border-slate-200 bg-slate-50 rounded-lg px-3 py-2 text-sm font-mono text-slate-700 focus:outline-none">
+                    <button onclick="copyUploadURL()" title="Copiar URL"
+                        class="px-3 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-600"><i data-lucide="copy"></i></button>
+                </div>
+                <p class="text-xs text-slate-400 mt-2">Puedes usar esta URL en <strong>Cargar desde URL</strong> para restaurar el notebook.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: cargar desde URL -->
+    <div id="url-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background:rgba(15,23,42,0.5)">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="font-bold text-lg text-slate-800 flex items-center gap-2">
+                    <i data-lucide="link" class="text-blue-600"></i> Cargar notebook desde URL
+                </h2>
+                <button onclick="closeUrlModal()" class="text-slate-400 hover:text-slate-600"><i data-lucide="x"></i></button>
+            </div>
+
+            <p class="text-sm text-slate-500 mb-3">
+                Pega la URL de un archivo <code class="bg-slate-100 px-1 rounded">.json</code> con el formato de notebook guardado.
+            </p>
+
+            <div class="flex gap-2 mb-3">
+                <input id="url-input" type="url" placeholder="https://ejemplo.com/notebook.json"
+                    class="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    onkeydown="if(event.key==='Enter') loadFromURL()">
+                <button id="url-btn" onclick="loadFromURL()"
+                    class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold flex items-center gap-1 whitespace-nowrap">
+                    <i data-lucide="download"></i> Cargar
+                </button>
+            </div>
+
+            <div id="url-status" class="hidden text-sm rounded-lg px-3 py-2"></div>
+
+            <p class="text-xs text-slate-400 mt-3">
+                ⚠ El servidor que aloja el archivo debe permitir solicitudes CORS (o usar una URL de GitHub Raw, Gist, Pastebin raw, etc.).
+            </p>
+        </div>
+    </div>
+
+    <main id="notebook" class="max-w-5xl mx-auto py-8 px-6 space-y-6"></main>
+
+    <script type="module">
+        import { WebR } from 'https://webr.r-wasm.org/latest/webr.mjs';
+        const webR = new WebR();
+        window.webR = webR;
+        let cellCount = 0;
+        const editors = {};
+
+        async function init() {
+            await webR.init();
+            document.getElementById('loading-overlay').remove();
+            addCell("plot(mtcars$mpg, mtcars$hp, col='blue', pch=19, main='Prueba de Gráfico Base')\n\n# library(ggplot2)\n# ggplot(mtcars, aes(mpg, hp)) + geom_point()");
+            lucide.createIcons();
+        }
+
+        // _bulk=true → no llama lucide.createIcons() (se hará una vez al terminar el lote)
+        window.addCell = function(content = "", _bulk = false) {
+            cellCount++;
+            const id = `cell-${cellCount}`;
+            document.getElementById('notebook').insertAdjacentHTML('beforeend', `
+                <div id="${id}-container" class="cell-container bg-white rounded-xl shadow-sm border p-4">
+                    <div class="flex justify-between mb-2">
+                        <span class="text-xs font-bold text-slate-400">EJECUCIÓN [${cellCount}]</span>
+                        <button onclick="runCell('${id}')" class="text-emerald-600 hover:bg-emerald-50 p-1 rounded"><i data-lucide="play"></i></button>
+                    </div>
+                    <div id="${id}-editor"></div>
+                    <div id="${id}-output" class="hidden mt-4 pt-4 border-t">
+                        <div class="output-stdout text-slate-600 mb-2"></div>
+                        <div class="output-canvas"></div>
+                    </div>
+                </div>
+            `);
+            editors[id] = CodeMirror(document.getElementById(`${id}-editor`), {
+                value: content, mode: "r", theme: "dracula", lineNumbers: true, lineWrapping: true
+            });
+            // Forzar refresco de layout para que CodeMirror calcule dimensiones correctas
+            editors[id].refresh();
+            if (!_bulk) lucide.createIcons();
+        };
+
+        // Escapa caracteres especiales de HTML para mostrarlos como texto literal
+        function escapeHtml(text) {
+            return String(text)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+
+        // Convierte un <canvas> DOM a una etiqueta <img> con data URL embebida
+        function canvasToImgTag(canvas) {
+            const img = document.createElement('img');
+            img.src = canvas.toDataURL('image/png');
+            img.className = 'r-plot-img';
+            img.alt = 'Gráfico generado por R';
+            return img;
+        }
+
+        window.runCell = async function(id) {
+            const code = editors[id].getValue();
+            const outputDiv = document.getElementById(`${id}-output`);
+            const stdoutDiv = outputDiv.querySelector('.output-stdout');
+            const canvasDiv = outputDiv.querySelector('.output-canvas');
+
+            outputDiv.classList.remove('hidden');
+            stdoutDiv.innerHTML = '<span class="out-warn">Ejecutando...</span>';
+            canvasDiv.innerHTML = '';
+
+            try {
+                // captureR con captureGraphics captura los plots en result.images
+                // como ImageBitmap — no requiere webr::canvas() ni dev.off() manuales
+                const shelter = await new webR.Shelter();
+                const result = await shelter.captureR(code, {
+                    withAutoprint: true,
+                    captureGraphics: { width: 800, height: 600 }
+                });
+
+                // 1. Formatear cada línea de salida como HTML según su tipo
+                let htmlLines = '';
+                result.output.forEach(line => {
+                    if (line.type === 'stdout') {
+                        htmlLines += `<span class="out-line">${escapeHtml(line.data)}</span>`;
+                    } else if (line.type === 'stderr') {
+                        htmlLines += `<span class="out-err">${escapeHtml(line.data)}</span>`;
+                    } else if (line.type === 'message') {
+                        htmlLines += `<span class="out-warn">${escapeHtml(line.data)}</span>`;
+                    }
+                });
+                stdoutDiv.innerHTML = htmlLines ||
+                    '<span class="out-warn" style="font-style:italic">Sin salida de texto.</span>';
+
+                // 2. Renderizar cada gráfico capturado como <img> embebida (data URL)
+                (result.images || []).forEach(bitmap => {
+                    const offscreen = document.createElement('canvas');
+                    offscreen.width  = bitmap.width;
+                    offscreen.height = bitmap.height;
+                    offscreen.getContext('2d').drawImage(bitmap, 0, 0);
+                    canvasDiv.appendChild(canvasToImgTag(offscreen));
+                });
+
+                await shelter.purge();
+            } catch (err) {
+                stdoutDiv.innerHTML =
+                    `<span class="out-err">Error: ${escapeHtml(err.message)}</span>`;
+            }
+        };
+
+        // ── Paquetes ──────────────────────────────────────────────────
+        const installedPkgs = new Set();
+
+        window.openPkgModal = () => {
+            document.getElementById('pkg-modal').classList.remove('hidden');
+            document.getElementById('pkg-input').focus();
+        };
+
+        window.closePkgModal = () => {
+            document.getElementById('pkg-modal').classList.add('hidden');
+        };
+
+        // Cerrar al hacer clic en el fondo oscuro
+        document.getElementById('pkg-modal').addEventListener('click', e => {
+            if (e.target === e.currentTarget) closePkgModal();
+        });
+
+        function pkgLog(msg, type = 'info') {
+            const log = document.getElementById('pkg-log');
+            log.classList.remove('hidden');
+            const span = document.createElement('span');
+            span.className = `log-${type}`;
+            span.textContent = msg + '\n';
+            log.appendChild(span);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function addPkgTag(name) {
+            const wrap = document.getElementById('pkg-installed');
+            const tags = document.getElementById('pkg-tags');
+            wrap.classList.remove('hidden');
+            const tag = document.createElement('span');
+            tag.className = 'px-2 py-1 bg-blue-50 text-blue-700 text-xs rounded-full font-mono';
+            tag.textContent = name;
+            tags.appendChild(tag);
+        }
+
+        window.installPackages = async () => {
+            const raw = document.getElementById('pkg-input').value.trim();
+            if (!raw) return;
+
+            const pkgs = raw.split(',').map(p => p.trim()).filter(Boolean);
+            const btn  = document.getElementById('pkg-btn');
+            const log  = document.getElementById('pkg-log');
+
+            // Reset log
+            log.innerHTML = '';
+            log.classList.remove('hidden');
+            btn.disabled = true;
+            btn.classList.add('opacity-50', 'cursor-not-allowed');
+            document.getElementById('pkg-input').disabled = true;
+
+            for (const pkg of pkgs) {
+                pkgLog(`▶ Instalando "${pkg}"…`, 'info');
+                try {
+                    await webR.installPackages([pkg], { mount: true });
+                    installedPkgs.add(pkg);
+                    addPkgTag(pkg);
+                    pkgLog(`✔ "${pkg}" instalado correctamente.`, 'ok');
+                } catch (err) {
+                    pkgLog(`✘ Error al instalar "${pkg}": ${err.message}`, 'err');
+                }
+            }
+
+            pkgLog('─ Listo.', 'info');
+            btn.disabled = false;
+            btn.classList.remove('opacity-50', 'cursor-not-allowed');
+            document.getElementById('pkg-input').disabled = false;
+            document.getElementById('pkg-input').value = '';
+        };
+
+        // ── Guardar / Cargar ──────────────────────────────────────────
+
+        // Función compartida: parsea el JSON y reconstruye el notebook.
+        // Es async para insertar un requestAnimationFrame entre cada celda,
+        // dando al browser un ciclo de pintura completo antes de inicializar
+        // el siguiente CodeMirror (evita que instancias en lote queden sin layout).
+        async function applyNotebook(data) {
+            const cells = Array.isArray(data) ? data : (data.cells || []);
+            if (!cells.length) throw new Error('El archivo no contiene celdas.');
+
+            // Limpiar estado: eliminar nodos uno a uno (más seguro que innerHTML='')
+            const notebook = document.getElementById('notebook');
+            while (notebook.firstChild) notebook.removeChild(notebook.firstChild);
+            Object.keys(editors).forEach(k => delete editors[k]);
+            cellCount = 0;
+
+            // Agregar cada celda y esperar un frame de render antes de la siguiente
+            for (let i = 0; i < cells.length; i++) {
+                try {
+                    addCell(cells[i].code || '', true);  // _bulk=true → sin lucide por celda
+                } catch (e) {
+                    console.error(`Error añadiendo celda ${i + 1}:`, e);
+                }
+                // Ceder el hilo al browser para que pinte la celda recién creada
+                await new Promise(r => requestAnimationFrame(r));
+            }
+
+            // Iconos y refresco de layout una sola vez, ya con todo pintado
+            lucide.createIcons();
+            Object.values(editors).forEach(cm => cm.refresh());
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+
+            return cells.length;
+        }
+
+        window.saveToFile = () => {
+            const cells = Object.entries(editors).map(([id, editor]) => ({
+                id, code: editor.getValue()
+            }));
+            const payload = { version: 1, savedAt: new Date().toISOString(), cells };
+            const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            const ts = new Date().toISOString().slice(0,16).replace('T','_').replace(':','');
+            a.download = `notebook_${ts}.json`;
+            a.click();
+        };
+
+        window.loadFromFile = (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                let data;
+                try { data = JSON.parse(e.target.result); }
+                catch { alert('Archivo inválido: no es un JSON bien formado.'); return; }
+                applyNotebook(data)
+                    .then(() => { event.target.value = ''; })
+                    .catch(err => alert('Error al cargar: ' + err.message));
+            };
+            reader.readAsText(file);
+        };
+
+        // ── Subir al servidor ─────────────────────────────────────────
+        window.openUploadModal = () => {
+            document.getElementById('upload-modal').classList.remove('hidden');
+            document.getElementById('upload-status').classList.add('hidden');
+            document.getElementById('upload-result').classList.add('hidden');
+            lucide.createIcons();
+        };
+
+        window.closeUploadModal = () => {
+            document.getElementById('upload-modal').classList.add('hidden');
+        };
+
+        document.getElementById('upload-modal').addEventListener('click', e => {
+            if (e.target === e.currentTarget) closeUploadModal();
+        });
+
+        function uploadStatus(msg, type) {
+            const el = document.getElementById('upload-status');
+            el.classList.remove('hidden',
+                'bg-blue-50','text-blue-700',
+                'bg-green-50','text-green-700',
+                'bg-red-50','text-red-700');
+            const map = {
+                loading: ['bg-blue-50',  'text-blue-700'],
+                ok:      ['bg-green-50', 'text-green-700'],
+                err:     ['bg-red-50',   'text-red-700'],
+            };
+            el.classList.add(...map[type]);
+            el.textContent = msg;
+        }
+
+        window.uploadNotebook = async () => {
+            const endpoint = document.getElementById('upload-endpoint').value.trim() || '/upload';
+            const btn      = document.getElementById('upload-btn');
+
+            // Construir payload
+            const cells = Object.entries(editors).map(([id, editor]) => ({
+                id, code: editor.getValue()
+            }));
+            const payload = { version: 1, savedAt: new Date().toISOString(), cells };
+
+            btn.disabled = true;
+            btn.classList.add('opacity-50', 'cursor-not-allowed');
+            document.getElementById('upload-result').classList.add('hidden');
+            uploadStatus('⏳ Subiendo…', 'loading');
+
+            try {
+                const res = await fetch(endpoint, {
+                    method:  'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body:    JSON.stringify(payload, null, 2),
+                });
+                const json = await res.json();
+                if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`);
+
+                uploadStatus(`✔ Subido correctamente (${json.cells} celdas).`, 'ok');
+                document.getElementById('upload-url-out').value = json.url;
+                document.getElementById('upload-result').classList.remove('hidden');
+                lucide.createIcons();
+            } catch (err) {
+                uploadStatus(`✘ Error: ${err.message}`, 'err');
+            } finally {
+                btn.disabled = false;
+                btn.classList.remove('opacity-50', 'cursor-not-allowed');
+            }
+        };
+
+        window.copyUploadURL = () => {
+            const input = document.getElementById('upload-url-out');
+            navigator.clipboard.writeText(input.value).then(() => {
+                const btn = input.nextElementSibling;
+                btn.innerHTML = '<i data-lucide="check"></i>';
+                lucide.createIcons();
+                setTimeout(() => { btn.innerHTML = '<i data-lucide="copy"></i>'; lucide.createIcons(); }, 1500);
+            });
+        };
+
+        // ── Cargar desde URL ──────────────────────────────────────────
+        window.openUrlModal = () => {
+            document.getElementById('url-modal').classList.remove('hidden');
+            document.getElementById('url-status').classList.add('hidden');
+            document.getElementById('url-input').focus();
+            lucide.createIcons();
+        };
+
+        window.closeUrlModal = () => {
+            document.getElementById('url-modal').classList.add('hidden');
+            document.getElementById('url-input').value = '';
+        };
+
+        document.getElementById('url-modal').addEventListener('click', e => {
+            if (e.target === e.currentTarget) closeUrlModal();
+        });
+
+        function urlStatus(msg, type) {
+            // type: 'ok' | 'err' | 'loading'
+            const el = document.getElementById('url-status');
+            el.classList.remove('hidden', 'bg-green-50', 'text-green-700',
+                                 'bg-red-50', 'text-red-700', 'bg-blue-50', 'text-blue-700');
+            const map = {
+                ok:      ['bg-green-50', 'text-green-700'],
+                err:     ['bg-red-50',   'text-red-700'],
+                loading: ['bg-blue-50',  'text-blue-700'],
+            };
+            el.classList.add(...map[type]);
+            el.textContent = msg;
+        }
+
+        window.loadFromURL = async () => {
+            const url = document.getElementById('url-input').value.trim();
+            if (!url) return;
+
+            const btn = document.getElementById('url-btn');
+            btn.disabled = true;
+            btn.classList.add('opacity-50', 'cursor-not-allowed');
+            urlStatus('⏳ Descargando…', 'loading');
+
+            try {
+                const res = await fetch(url);
+                if (!res.ok) throw new Error(`HTTP ${res.status} — ${res.statusText}`);
+                const data  = await res.json();
+                const count = await applyNotebook(data);
+                urlStatus(`✔ ${count} celda${count !== 1 ? 's' : ''} cargada${count !== 1 ? 's' : ''} correctamente.`, 'ok');
+                setTimeout(closeUrlModal, 1800);
+            } catch (err) {
+                const corsHint = err.message.includes('Failed to fetch')
+                    ? ' (posible error CORS — el servidor debe permitir solicitudes desde este origen)'
+                    : '';
+                urlStatus(`✘ ${err.message}${corsHint}`, 'err');
+            } finally {
+                btn.disabled = false;
+                btn.classList.remove('opacity-50', 'cursor-not-allowed');
+            }
+        };
+
+        window.exportHTML = () => {
+            // Serializar el notebook; las imágenes ya son data URLs, quedan embebidas
+            const notebookHTML = document.getElementById('notebook').innerHTML;
+            const fullDoc = `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>R-Notebook — Reporte</title>
+  <style>
+    body { max-width: 900px; margin: 40px auto; padding: 0 20px; font-family: sans-serif; background: #f8fafc; }
+    .cell-container { background: white; border: 1px solid #e2e8f0; border-radius: 12px;
+                      padding: 20px; margin-bottom: 24px; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+    .output-stdout { font-family: 'Courier New', monospace; font-size: 13px; line-height: 1.6;
+                     background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px;
+                     padding: 12px 14px; white-space: pre-wrap; }
+    .out-line { display:block; color:#334155; }
+    .out-warn { display:block; color:#b45309; }
+    .out-err  { display:block; color:#dc2626; font-weight:600; }
+    .r-plot-img { max-width:100%; height:auto; display:block; margin:14px auto 0;
+                  border:1px solid #e2e8f0; border-radius:8px; }
+    button, .flex { display:none !important; }
+  </style>
+</head>
+<body>${notebookHTML}</body>
+</html>`;
+            const blob = new Blob([fullDoc], { type: 'text/html' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'reporte.html';
+            a.click();
+        };
+
+        init();
+    </script>
+</body>
+</html>

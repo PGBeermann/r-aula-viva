@@ -1,0 +1,36 @@
+{
+  "version": 2,
+  "title": "Demostración — Curva de calibración (Beer-Lambert)",
+  "cells": [
+    {
+      "id": "d1",
+      "type": "markdown",
+      "code": "# Curva de calibración espectrofotométrica\nLey de Beer-Lambert: $A = \\varepsilon\\, b\\, c$\n\nEjemplo de especie química: \\ce{KMnO4} en medio ácido, $\\lambda_{máx} \\approx 525$ nm.\n\n> Datos **simulados** con fines didácticos."
+    },
+    {
+      "id": "d2",
+      "type": "code",
+      "code": "set.seed(2026)\nconc <- c(0, 2, 4, 6, 8, 10)          # mg/L\nabs  <- 0.002 + 0.0452 * conc + rnorm(6, 0, 0.004)\ncal  <- data.frame(conc, abs)\ncal"
+    },
+    {
+      "id": "d3",
+      "type": "code",
+      "code": "modelo <- lm(abs ~ conc, data = cal)\nsummary(modelo)"
+    },
+    {
+      "id": "d4",
+      "type": "code",
+      "code": "plot(abs ~ conc, data = cal, pch = 19, col = \"steelblue\",\n     xlab = \"Concentración (mg/L)\", ylab = \"Absorbancia\",\n     main = \"Curva de calibración\")\nabline(modelo, col = \"firebrick\", lwd = 2)\nlegend(\"topleft\", bty = \"n\",\n       legend = sprintf(\"R² = %.4f\", summary(modelo)$r.squared))"
+    },
+    {
+      "id": "d5",
+      "type": "markdown",
+      "code": "## Interpolación de una muestra problema\n$$c_x = \\frac{A_x - b_0}{b_1}$$"
+    },
+    {
+      "id": "d6",
+      "type": "code",
+      "code": "A_x <- 0.231\nc_x <- (A_x - coef(modelo)[1]) / coef(modelo)[2]\ncat(\"Concentración estimada:\", round(c_x, 3), \"mg/L\\n\")"
+    }
+  ]
+}

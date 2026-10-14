@@ -1,0 +1,51 @@
+{
+  "version": 2,
+  "title": "Montgomery — Cuadrado latino (Ej. 4.3 y 4.4)",
+  "cells": [
+    {
+      "id": "md-intro",
+      "type": "markdown",
+      "code": "# Diseño en cuadrado latino\nDatos de Montgomery (2017), *Design and Analysis of Experiments*, 9.ª ed., Ejemplos 4.3 y 4.4.\n\nModelo: $y_{ijk} = \\mu + \\alpha_i + \\tau_j + \\beta_k + \\varepsilon_{ijk}$"
+    },
+    {
+      "id": "cell-1",
+      "type": "code",
+      "code": "## Datos: Montgomery (2017), Ejemplos 4.3 y 4.4\ndatos <- data.frame(\n  lote     = factor(rep(1:5, each = 5)),\n  operador = factor(rep(1:5, times = 5)),\n  formula  = factor(c(\"A\",\"B\",\"C\",\"D\",\"E\",\n                      \"B\",\"C\",\"D\",\"E\",\"A\",\n                      \"C\",\"D\",\"E\",\"A\",\"B\",\n                      \"D\",\"E\",\"A\",\"B\",\"C\",\n                      \"E\",\"A\",\"B\",\"C\",\"D\")), \n  y = c(24,20,19,24,24, 17,24,30,27,36, 18,38,26,27,21,\n        26,31,26,23,22, 22,30,20,29,31)\n)\nstr(datos)"
+    },
+    {
+      "id": "cell-2",
+      "type": "code",
+      "code": "mod_cl <- aov(y ~ lote + operador + formula, data = datos)\nsummary(mod_cl)"
+    },
+    {
+      "id": "cell-3",
+      "type": "code",
+      "code": "par(mfrow=c(1,3))\nboxplot(y~lote,data=datos,col=c(\"blue\",\"orange\",\"green\",\"red\"))\nboxplot(y~operador,data=datos)\nboxplot(y~formula,data=datos)"
+    },
+    {
+      "id": "cell-4",
+      "type": "code",
+      "code": "TukeyHSD(mod_cl, \"operador\", conf.level = 0.95)"
+    },
+    {
+      "id": "cell-5",
+      "type": "code",
+      "code": "par(mfrow=c(2,2))\nplot(mod_cl)"
+    },
+    {
+      "id": "cell-6",
+      "type": "code",
+      "code": "par(mfrow=c(1,1))\nshapiro.test(residuals(mod_cl))  "
+    },
+    {
+      "id": "cell-7",
+      "type": "code",
+      "code": "bartlett.test(y ~ formula, data = datos)   "
+    },
+    {
+      "id": "cell-8",
+      "type": "code",
+      "code": "datos$q <- fitted(mod_cl)^2\nsummary(aov(y ~ lote + operador + formula + q, data = datos))"
+    }
+  ]
+}

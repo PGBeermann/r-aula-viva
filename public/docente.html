@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Panel docente | R Aula Viva</title>
+  <link rel="icon" href="/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/app.css">
+  <script src="/vendor/lucide/lucide.min.js"></script>
+</head>
+<body>
+  <div class="hero">
+    <!-- Inicio de sesión -->
+    <div id="login" class="card hidden">
+      <div class="brand">
+        <div class="brand-logo">R</div>
+        <div class="brand-title"><strong>R Aula Viva</strong><span>Panel docente</span></div>
+      </div>
+      <h1>Acceso docente</h1>
+      <p class="lead">Ingrese la contraseña configurada en el servidor.</p>
+      <form id="login-form">
+        <div class="field">
+          <label for="pw">Contraseña</label>
+          <input id="pw" type="password" class="input" autocomplete="current-password" required>
+        </div>
+        <div id="login-err" class="small hidden" style="color:var(--danger);margin-bottom:10px"></div>
+        <button class="btn primary" style="width:100%;padding:11px">Ingresar</button>
+      </form>
+      <p class="foot-note"><a href="/">← Volver al ingreso de estudiantes</a></p>
+    </div>
+
+    <!-- Aulas -->
+    <div id="dash" class="card wide hidden">
+      <div class="row" style="justify-content:space-between;flex-wrap:wrap">
+        <div class="brand">
+          <div class="brand-logo">R</div>
+          <div class="brand-title"><strong>Mis aulas</strong><span>R Aula Viva · UNACHI</span></div>
+        </div>
+        <button id="logout" class="btn ghost"><i data-lucide="log-out"></i> Cerrar sesión</button>
+      </div>
+      <form id="create" class="row" style="margin:20px 0 18px">
+        <input id="title" class="input" maxlength="120" placeholder="Nombre de la clase (ej.: Diseño de experimentos — Sesión 5)">
+        <button class="btn primary"><i data-lucide="plus"></i> Crear aula</button>
+      </form>
+      <div id="rooms" class="room-grid"></div>
+      <div id="no-rooms" class="empty-state hidden">Aún no hay aulas. Cree la primera.</div>
+    </div>
+  </div>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const fmt = t => new Date(t).toLocaleString('es-PA', { dateStyle: 'medium', timeStyle: 'short' });
+
+    async function api(url, opts = {}) {
+      const r = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...opts });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+      return j;
+    }
+
+    async function boot() {
+      const me = await api('/api/me');
+      if (!me.teacherEnabled) {
+        $('login').classList.remove('hidden');
+        $('login-err').textContent = 'El acceso docente no está configurado en el servidor (variable TEACHER_PASSWORD).';
+        $('login-err').classList.remove('hidden');
+        return;
+      }
+      if (me.teacher) showDash(); else { $('login').classList.remove('hidden'); $('pw').focus(); }
+    }
+
+    $('login-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      try {
+        await api('/api/login', { method: 'POST', body: JSON.stringify({ password: $('pw').value }) });
+        $('login').classList.add('hidden');
+        showDash();
+      } catch (err) {
+        $('login-err').textContent = err.message;
+        $('login-err').classList.remove('hidden');
+      }
+    });
+    $('logout').onclick = async () => { await api('/api/logout', { method: 'POST' }); location.reload(); };
+
+    async function showDash() {
+      $('dash').classList.remove('hidden');
+      await loadRooms();
+      lucide.createIcons();
+    }
+
+    async function loadRooms() {
+      const { rooms } = await api('/api/rooms');
+      $('no-rooms').classList.toggle('hidden', rooms.length > 0);
+      $('rooms').innerHTML = rooms.map(r => `
+        <div class="room-card">
+          <div class="row" style="justify-content:space-between">
+            <span class="code">${esc(r.code)}</span>
+            <span class="chip ${r.online ? 'ok' : ''}"><span class="dot"></span>${r.online} en línea</span>
+          </div>
+          <strong>${esc(r.title)}</strong>
+          <span class="small muted">${r.cells} celdas · actualizado ${esc(fmt(r.updatedAt))}</span>
+          <div class="row" style="margin-top:6px;flex-wrap:wrap">
+            <a class="btn primary sm" href="/aula/${esc(r.code)}"><i data-lucide="presentation"></i> Abrir</a>
+            <a class="btn sm" href="/aula/${esc(r.code)}?vista=estudiante" target="_blank" rel="noopener"><i data-lucide="eye"></i> Vista estudiante</a>
+            <a class="btn sm" href="/api/rooms/${esc(r.code)}/export.json"><i data-lucide="download"></i></a>
+            <button class="btn sm danger" data-del="${esc(r.code)}" title="Eliminar aula"><i data-lucide="trash-2"></i></button>
+          </div>
+        </div>`).join('');
+      $('rooms').querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
+        if (!confirm(`¿Eliminar definitivamente el aula ${b.dataset.del}? Se perderán sus celdas, preguntas y entregas.`)) return;
+        await api(`/api/rooms/${b.dataset.del}`, { method: 'DELETE' });
+        loadRooms().then(() => lucide.createIcons());
+      });
+      lucide.createIcons();
+    }
+
+    $('create').addEventListener('submit', async e => {
+      e.preventDefault();
+      const { room } = await api('/api/rooms', { method: 'POST', body: JSON.stringify({ title: $('title').value }) });
+      location.href = `/aula/${room.code}`;
+    });
+
+    boot();
+  </script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+{
+  "name": "r-aula-viva",
+  "version": "2.0.0",
+  "description": "R Aula Viva — cuaderno R (webR) colaborativo en tiempo real para clases en línea. UNACHI.",
+  "main": "server.js",
+  "type": "commonjs",
+  "private": true,
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "engines": { "node": ">=20" },
+  "author": "Dr. Pedro González Beermann — Escuela de Química, UNACHI",
+  "license": "MIT",
+  "dependencies": {
+    "codemirror": "5.65.21",
+    "dompurify": "3.4.15",
+    "express": "5.2.1",
+    "katex": "0.18.9",
+    "lucide": "1.46.0",
+    "marked": "18.0.13",
+    "qrcode": "1.5.4",
+    "socket.io": "4.8.3",
+    "webr": "0.6.0"
+  }
+}

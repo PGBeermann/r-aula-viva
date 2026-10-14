@@ -1,0 +1,18 @@
+# .htaccess raíz — R-Notebook / UNACHI
+
+# Redirigir /upload a upload.php (compatibilidad con el endpoint por defecto del frontend)
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # /upload  →  upload.php (mantiene el endpoint "/upload" del modal de subida)
+    RewriteRule ^upload$ upload.php [L,QSA]
+
+    # /uploads/<file>.json  →  uploads/<file>.json (archivos estáticos, sin reescritura extra)
+    RewriteRule ^uploads/(.+\.json)$ uploads/$1 [L]
+</IfModule>
+
+# Charset por defecto
+AddDefaultCharset UTF-8
+
+# Deshabilitar firma del servidor
+ServerSignature Off

@@ -1,0 +1,24 @@
+# uploads/.htaccess — Seguridad y CORS para archivos de notebook
+
+# Deshabilitar ejecución de PHP dentro de este directorio
+<FilesMatch "\.php$">
+    Require all denied
+</FilesMatch>
+
+# Solo permitir acceso a archivos .json
+<FilesMatch "^(?!.*\.json$)">
+    Require all denied
+</FilesMatch>
+
+# CORS: permitir que fetch() desde cualquier origen descargue los notebooks
+<IfModule mod_headers.c>
+    <FilesMatch "\.json$">
+        Header set Access-Control-Allow-Origin "*"
+        Header set Access-Control-Allow-Methods "GET, OPTIONS"
+        Header set Access-Control-Allow-Headers "Content-Type"
+        Header set Content-Type "application/json; charset=utf-8"
+    </FilesMatch>
+</IfModule>
+
+# Prevenir listado de directorio
+Options -Indexes

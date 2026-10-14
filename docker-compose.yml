@@ -1,0 +1,20 @@
+# Alternativa para Dokploy en modo "Docker Compose".
+# (Recomendado: tipo "Application" con Build Type = Dockerfile; ver README.)
+services:
+  r-aula-viva:
+    build: .
+    restart: unless-stopped
+    environment:
+      TEACHER_PASSWORD: ${TEACHER_PASSWORD}
+      SESSION_SECRET: ${SESSION_SECRET}
+      PUBLIC_URL: ${PUBLIC_URL:-}
+      MAX_STUDENTS_PER_ROOM: ${MAX_STUDENTS_PER_ROOM:-150}
+      DEFAULT_PACKAGES: ${DEFAULT_PACKAGES:-}
+      WEBR_BASE_URL: ${WEBR_BASE_URL:-/vendor/webr/}
+    expose:
+      - "3000"
+    volumes:
+      - raula-data:/app/data
+
+volumes:
+  raula-data:

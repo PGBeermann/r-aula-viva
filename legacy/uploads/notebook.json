@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "savedAt": "2026-10-14T00:29:22.759Z",
+  "cells": [
+    {
+      "id": "cell-1",
+      "code": "## Datos: Montgomery (2017), Ejemplos 4.3 y 4.4\ndatos <- data.frame(\n  lote     = factor(rep(1:5, each = 5)),\n  operador = factor(rep(1:5, times = 5)),\n  formula  = factor(c(\"A\",\"B\",\"C\",\"D\",\"E\",\n                      \"B\",\"C\",\"D\",\"E\",\"A\",\n                      \"C\",\"D\",\"E\",\"A\",\"B\",\n                      \"D\",\"E\",\"A\",\"B\",\"C\",\n                      \"E\",\"A\",\"B\",\"C\",\"D\")), \n  y = c(24,20,19,24,24, 17,24,30,27,36, 18,38,26,27,21,\n        26,31,26,23,22, 22,30,20,29,31)\n)\nstr(datos)"
+    },
+    {
+      "id": "cell-2",
+      "code": "mod_cl <- aov(y ~ lote + operador + formula, data = datos)\nsummary(mod_cl)"
+    },
+    {
+      "id": "cell-3",
+      "code": "par(mfrow=c(1,3))\nboxplot(y~lote,data=datos,col=c(\"blue\",\"orange\",\"green\",\"red\"))\nboxplot(y~operador,data=datos)\nboxplot(y~formula,data=datos)"
+    },
+    {
+      "id": "cell-4",
+      "code": "TukeyHSD(mod_cl, \"operador\", conf.level = 0.95)"
+    },
+    {
+      "id": "cell-5",
+      "code": "par(mfrow=c(2,2))\nplot(mod_cl)"
+    },
+    {
+      "id": "cell-6",
+      "code": "par(mfrow=c(1,1))\nshapiro.test(residuals(mod_cl))  "
+    },
+    {
+      "id": "cell-7",
+      "code": "bartlett.test(y ~ formula, data = datos)   "
+    },
+    {
+      "id": "cell-8",
+      "code": "datos$q <- fitted(mod_cl)^2\nsummary(aov(y ~ lote + operador + formula + q, data = datos))"
+    },
+    {
+      "id": "cell-9",
+      "code": ""
+    }
+  ]
+}

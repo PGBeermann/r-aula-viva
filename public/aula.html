@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aula | R Aula Viva</title>
+  <link rel="icon" href="/img/favicon.svg" type="image/svg+xml">
+
+  <link rel="stylesheet" href="/vendor/codemirror/lib/codemirror.css">
+  <link rel="stylesheet" href="/vendor/codemirror/theme/dracula.css">
+  <link rel="stylesheet" href="/vendor/katex/katex.min.css">
+  <link rel="stylesheet" href="/css/app.css">
+
+  <script src="/vendor/codemirror/lib/codemirror.js"></script>
+  <script src="/vendor/codemirror/mode/r/r.js"></script>
+  <script src="/vendor/codemirror/mode/markdown/markdown.js"></script>
+  <script src="/vendor/codemirror/addon/edit/matchbrackets.js"></script>
+  <script src="/vendor/codemirror/addon/edit/closebrackets.js"></script>
+  <script src="/vendor/codemirror/addon/comment/comment.js"></script>
+  <script src="/vendor/codemirror/addon/display/placeholder.js"></script>
+  <script src="/vendor/marked/marked.umd.js"></script>
+  <script src="/vendor/dompurify/purify.min.js"></script>
+  <script src="/vendor/katex/katex.min.js"></script>
+  <script src="/vendor/katex/contrib/mhchem.min.js"></script>
+  <script src="/vendor/katex/contrib/auto-render.min.js"></script>
+  <script src="/vendor/lucide/lucide.min.js"></script>
+  <script src="/socket.io/socket.io.min.js"></script>
+</head>
+<body>
+  <header class="topbar" id="topbar">
+    <div class="topbar-row">
+      <a class="brand" href="/" title="R Aula Viva" style="text-decoration:none;color:inherit">
+        <div class="brand-logo">R</div>
+      </a>
+      <div class="brand-title">
+        <strong id="room-title">Cargando…</strong>
+        <input id="room-title-input" class="room-title-input hidden" maxlength="120" aria-label="Título de la clase">
+        <span id="role-label">R Aula Viva</span>
+      </div>
+      <div class="spacer"></div>
+      <div class="chips">
+        <span id="timer-chip" class="chip timer hidden" title="Temporizador"></span>
+        <span id="code-chip" class="chip code" title="Compartir aula">——</span>
+        <span id="people-chip" class="chip" title="Participantes"><i data-lucide="users"></i><span id="people-count">0</span></span>
+        <span id="r-chip" class="chip hidden" title="Estado del motor R (webR)"><span class="dot"></span><span id="r-label">R</span></span>
+        <span id="conn-chip" class="chip busy" title="Conexión con el servidor"><span class="dot"></span><span id="conn-label">Conectando</span></span>
+      </div>
+    </div>
+    <div class="toolbar" id="toolbar"></div>
+    <div id="announce" class="announce hidden"></div>
+  </header>
+
+  <div class="layout">
+    <main class="main">
+      <div id="restart-note" class="hidden" style="max-width:980px;margin:0 auto 14px">
+        <div class="announce warn" style="border-radius:10px;border:1px solid #fde68a">
+          <i data-lucide="rotate-ccw"></i>
+          <span>El entorno R de este navegador es nuevo: las variables de la sesión anterior no existen. Use <b>Ejecutar todo</b> para reconstruirlas.</span>
+          <button class="btn sm" style="margin-left:auto" onclick="this.closest('#restart-note').classList.add('hidden')">Entendido</button>
+        </div>
+      </div>
+      <div id="notebook" class="notebook"></div>
+    </main>
+    <aside id="side" class="side">
+      <nav class="tabs" id="tabs"></nav>
+      <div class="tab-body" id="tab-body"></div>
+    </aside>
+  </div>
+
+  <div id="poll-float" class="poll-float hidden"></div>
+  <div id="reactions" class="reactions"></div>
+  <div id="toasts" class="toasts"></div>
+  <div id="modal-root"></div>
+
+  <script type="module" src="/js/aula.js"></script>
+</body>
+</html>
