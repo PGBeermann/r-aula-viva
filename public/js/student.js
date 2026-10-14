@@ -3,7 +3,7 @@
 import { $, esc, icons, uid, debounce, toast, modal, download, copyText, fmtTime, fileStamp, slugify, store } from './util.js';
 import { NotebookView } from './notebook.js';
 import { RRunner } from './runner.js';
-import { toJSON, toR, toHTML, parseNotebookFile } from './render.js';
+import { toJSON, toR, toRmd, toHTML, parseNotebookFile } from './render.js';
 import { setFontSize } from './shell.js';
 
 export function setup(ctx) {
@@ -276,6 +276,7 @@ export function setup(ctx) {
       <div class="row" style="margin-bottom:8px;flex-wrap:wrap">
         <button class="btn sm" data-open title="Abrir .R, .Rmd, .qmd o .json desde su computadora"><i data-lucide="folder-open"></i> Abrir</button>
         <button class="btn sm" data-r title="Guardar como script R"><i data-lucide="file-code"></i> Guardar .R</button>
+        <button class="btn sm" data-rmd title="Guardar como R Markdown para compilar con Knit en RStudio"><i data-lucide="file-type"></i> Guardar .Rmd</button>
         <button class="btn sm" data-json title="Guardar como cuaderno (se puede volver a abrir)"><i data-lucide="braces"></i> Guardar .json</button>
         <button class="btn sm danger" data-clear title="Vaciar mi espacio"><i data-lucide="trash-2"></i></button>
       </div>
@@ -288,6 +289,7 @@ export function setup(ctx) {
     el.querySelector('[data-stop]').onclick = () => localRunner?.interrupt();
     el.querySelector('[data-pkgs]').onclick = studentPackagesModal;
     el.querySelector('[data-r]').onclick = () => download(`mi_espacio_${code}_${fileStamp()}.R`, toR(scratch.list, `Mi espacio — ${S.title}`));
+    el.querySelector('[data-rmd]').onclick = () => download(`mi_espacio_${code}_${fileStamp()}.Rmd`, toRmd(scratch.list, `Mi espacio — ${S.title}`, name));
     el.querySelector('[data-json]').onclick = () => download(`mi_espacio_${code}_${fileStamp()}.json`, toJSON(scratch.list, `Mi espacio — ${S.title}`), 'application/json');
     el.querySelector('[data-open]').onclick = pickLocalFile;
     el.querySelector('[data-clear]').onclick = () => {
@@ -423,7 +425,7 @@ export function setup(ctx) {
           <li><b>Seguir al docente</b> desplaza la página automáticamente a la celda en la que trabaja.</li>
           <li>Pulse <b>Probar</b> en cualquier celda para copiarla a <b>Mi espacio</b> y ejecutarla en su navegador. Puede modificarla sin afectar la clase.</li>
           <li>Con <i data-lucide="send" style="width:13px;height:13px"></i> envía su código al docente para revisión.</li>
-          <li><b>Abrir archivo</b> carga en «Mi espacio» un <code>.R</code>, <code>.Rmd</code>, <code>.qmd</code> o <code>.json</code> de su computadora (también puede arrastrarlo al panel). Con <b>Guardar .R / .json</b> conserva su trabajo.</li>
+          <li><b>Abrir archivo</b> carga en «Mi espacio» un <code>.R</code>, <code>.Rmd</code>, <code>.qmd</code> o <code>.json</code> de su computadora (también puede arrastrarlo al panel). Con <b>Guardar .R / .Rmd / .json</b> conserva su trabajo; el <code>.Rmd</code> se compila con <b>Knit</b> en RStudio.</li>
           <li>Haga clic en un gráfico para ampliarlo; pase el ratón para descargarlo en PNG.</li>
           <li><b>Paquetes</b>: los que registra el docente se instalan solos en su navegador. Para otros, use el botón <b>Paquetes</b> de «Mi espacio» o escriba <code>install.packages("nombre")</code> en una celda.</li>
         </ul></div>
@@ -441,6 +443,7 @@ export function setup(ctx) {
       title: 'Descargar el cuaderno de la clase', icon: 'download',
       body: `<div class="list">
         <button class="btn" data-x="html"><i data-lucide="file-text"></i> Reporte HTML (código, salidas y gráficos)</button>
+        <button class="btn" data-x="rmd"><i data-lucide="file-type"></i> R Markdown (.Rmd) — para compilar con Knit en RStudio</button>
         <button class="btn" data-x="r"><i data-lucide="file-code"></i> Script R (.R)</button>
         <button class="btn" data-x="json"><i data-lucide="braces"></i> Cuaderno (.json)</button>
       </div>`,
@@ -449,6 +452,7 @@ export function setup(ctx) {
     m.el.querySelectorAll('[data-x]').forEach(b => b.onclick = async () => {
       if (b.dataset.x === 'html') download(`${base}.html`, await toHTML(nb.list, S.title), 'text/html;charset=utf-8');
       if (b.dataset.x === 'r') download(`${base}.R`, toR(nb.list, S.title));
+      if (b.dataset.x === 'rmd') download(`${base}.Rmd`, toRmd(nb.list, S.title, name));
       if (b.dataset.x === 'json') download(`${base}.json`, toJSON(nb.list, S.title), 'application/json');
       m.close();
     });

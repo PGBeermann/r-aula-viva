@@ -33,7 +33,7 @@ Navegador del DOCENTE ──(Socket.IO / WebSocket)──► Servidor Node.js �
 | Celdas R y celdas de texto (Markdown + LaTeX `$…$`, `$$…$$` y química `\ce{H2SO4}`) | Vista en vivo, con el cursor del docente resaltado |
 | Ejecutar celda (Ctrl+Enter), ejecutar y avanzar (Mayús+Enter), «Ejecutar todo», «Detener» | **Seguir al docente**: desplazamiento automático hasta la celda activa |
 | Paquetes de webR (`ggplot2`, `dplyr`…) que quedan registrados en el aula | **Probar**: copia una celda a «Mi espacio» y la ejecuta en su propio navegador |
-| Biblioteca de cuadernos en el servidor (guardar con Ctrl+S, abrir, eliminar) | **Abrir archivo** `.R`, `.Rmd`, `.qmd` o `.json` de su computadora en «Mi espacio» (botón o arrastrar y soltar) y guardar su trabajo como `.R` o `.json` |
+| Biblioteca de cuadernos en el servidor (guardar con Ctrl+S, abrir, eliminar) | **Abrir archivo** `.R`, `.Rmd`, `.qmd` o `.json` de su computadora en «Mi espacio» (botón o arrastrar y soltar) y guardar su trabajo como `.Rmd`, `.R` o `.json` |
 | | **Enviar al docente** el código y su salida, con un comentario |
 | Importar `.json` (formato anterior incluido), `.R` (knitr::spin), `.Rmd`, `.qmd` e `.ipynb`, o desde una URL | Preguntas privadas al docente, con respuesta individual |
 | Panel de participantes con manos levantadas | ✋ Levantar la mano y reacciones rápidas (👍 👏 🤔 😕 🐢 🚀) |
@@ -42,7 +42,7 @@ Navegador del DOCENTE ──(Socket.IO / WebSocket)──► Servidor Node.js �
 | Encuestas con plantillas («¿Comprendieron?», ritmo, V/F, A-B-C-D) y resultados en vivo | Descargar el cuaderno (HTML con gráficos, `.R` o `.json`) |
 | Anuncios, temporizador compartido, invitación con código QR | Tamaño de letra ajustable; funciona en el teléfono |
 | Permisos: descargas, preguntas, entregas, ejecución local | |
-| Exportar: `.R`, `.json`, reporte HTML con gráficos, PDF (impresión) | |
+| Exportar: **R Markdown `.Rmd` (compilable con Knit en RStudio)**, `.R`, `.json`, reporte HTML con gráficos, PDF (impresión) | |
 
 ## 2.1 Paquetes de R
 

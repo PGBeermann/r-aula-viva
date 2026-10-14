@@ -2,7 +2,7 @@
 import { $, esc, icons, uid, debounce, throttle, toast, modal, download, copyText, fmtTime, avatar, fileStamp, slugify } from './util.js';
 import { NotebookView } from './notebook.js';
 import { RRunner } from './runner.js';
-import { toJSON, toR, toHTML, parseNotebookFile } from './render.js';
+import { toJSON, toR, toRmd, toHTML, parseNotebookFile } from './render.js';
 import { setFontSize, shareModal } from './shell.js';
 
 export function setup(ctx) {
@@ -612,6 +612,7 @@ export function setup(ctx) {
     const m = modal({
       title: 'Descargar', icon: 'download',
       body: `<div class="list">
+        <button class="btn" data-x="rmd"><i data-lucide="file-type"></i> R Markdown (.Rmd) — para compilar con Knit en RStudio</button>
         <button class="btn" data-x="r"><i data-lucide="file-code"></i> Script R (.R, formato knitr::spin)</button>
         <button class="btn" data-x="html"><i data-lucide="file-text"></i> Reporte HTML con salidas y gráficos</button>
         <button class="btn" data-x="json"><i data-lucide="braces"></i> Cuaderno (.json, sólo código)</button>
@@ -623,6 +624,7 @@ export function setup(ctx) {
     m.el.querySelectorAll('[data-x]').forEach(b => b.onclick = async () => {
       const cells = nb.list;
       if (b.dataset.x === 'r') download(`${base}.R`, toR(cells, S.title));
+      if (b.dataset.x === 'rmd') download(`${base}.Rmd`, toRmd(cells, S.title, ctx.name));
       if (b.dataset.x === 'json') download(`${base}.json`, toJSON(cells, S.title), 'application/json');
       if (b.dataset.x === 'jsonfull') download(`${base}_salidas.json`, toJSON(cells, S.title, true), 'application/json');
       if (b.dataset.x === 'html') download(`${base}.html`, await toHTML(cells, S.title), 'text/html;charset=utf-8');

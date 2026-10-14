@@ -116,6 +116,40 @@ export function toR(cells, title) {
     : `#+ celda-${c.id}\n${c.code}`).join('\n\n') + '\n';
 }
 
+/**
+ * R Markdown (.Rmd) con la estructura de la plantilla de RStudio (File → New File → R Markdown):
+ * encabezado YAML, fragmento `setup` y fragmentos ```{r}. Se compila con Knit
+ * (rmarkdown::render); las salidas y los gráficos se regeneran al ejecutar el código.
+ */
+export function toRmd(cells, title, author = '') {
+  const q = s => String(s ?? '').replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  const today = new Date();
+  const date = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const usesCe = cells.some(c => c.type === 'markdown' && /\\ce\{/.test(c.code));
+  let out = `---\ntitle: "${q(title)}"\n${author ? `author: "${q(author)}"\n` : ''}date: "${date}"\noutput: html_document\n---\n\n`;
+  out += '```{r setup, include=FALSE}\nknitr::opts_chunk$set(echo = TRUE)\n```\n\n';
+  if (usesCe) {
+    // Fórmulas químicas \ce{} (mhchem) para MathJax en el documento HTML
+    out += '<script type="text/x-mathjax-config">\nMathJax.Hub.Config({ TeX: { extensions: ["mhchem.js"] } });\n</script>\n\n';
+  }
+  for (const c of cells) {
+    const src = String(c.code ?? '').replace(/\s+$/, '');
+    if (c.type === 'markdown') {
+      if (!src.trim()) continue;
+      // \ce{...} fuera de $...$ se envuelve en $...$ para que MathJax lo procese
+      const parts = src.split(/(```[\s\S]*?```|`[^`\n]*`|\$\$[\s\S]+?\$\$|\$[^$\n]+?\$)/g);
+      out += parts.map((p, i) => (i % 2 ? p : p.replace(/\\ce\{(?:[^{}\n]|\{[^{}\n]*\})*\}/g, m => `$${m}$`))).join('') + '\n\n';
+    } else {
+      if (!src.trim()) continue;
+      // En RStudio no existe webR: los fragmentos que instalan paquetes no se evalúan al compilar
+      const installs = /(^|\W)(install\.packages|webr::(install|shim_install|mount))\s*\(/.test(src);
+      const safe = src.replace(/^```/gm, '` ``');
+      out += `\`\`\`{r${installs ? ', eval=FALSE' : ''}}\n${safe}\n\`\`\`\n\n`;
+    }
+  }
+  return out;
+}
+
 export async function toHTML(cells, title) {
   let katexCss = '';
   try { katexCss = await (await fetch('/vendor/katex/katex.min.css')).text(); } catch { /* sin estilos KaTeX */ }

@@ -1,6 +1,6 @@
 {
   "name": "r-aula-viva",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "R Aula Viva — cuaderno R (webR) colaborativo en tiempo real para clases en línea. UNACHI.",
   "main": "server.js",
   "type": "commonjs",
