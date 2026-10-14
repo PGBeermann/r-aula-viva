@@ -113,7 +113,17 @@ export function setup(ctx) {
     nb.setFocus(f, { follow: follow && Date.now() - userScrollT > 2500 });
   });
   socket.on('settings', st => { S.settings = st; applySettings(); });
-  socket.on('packages', list => { S.packages = list; if (panel.active === 'mine') panel.refresh('mine'); });
+  socket.on('packages', list => {
+    const nuevos = list.filter(p => !(S.packages || []).includes(p));
+    S.packages = list;
+    // Si el R local ya está iniciado, instalar de inmediato los paquetes que el docente acaba de registrar
+    if (localRunner && nuevos.length) {
+      toast(`Instalando en su navegador: ${nuevos.join(', ')}`, '', 3500);
+      localRunner.installPackages(nuevos, m => console.log(`[paquetes] ${m}`))
+        .then(ok => ok.length && toast(`✔ Paquetes listos: ${ok.join(', ')}`, 'ok'));
+    }
+    if (panel.active === 'mine') panel.refresh('mine');
+  });
   socket.on('hand', setHand);
   socket.on('question:mine', q => {
     const i = myQuestions.findIndex(x => x.id === q.id);
@@ -259,6 +269,7 @@ export function setup(ctx) {
         <span class="small muted">R local: <b id="mine-status">${localRunner ? esc($('#r-label').textContent.replace('Mi R: ', '')) : 'sin iniciar'}</b></span>
         <div class="row">
           <button class="btn sm icon" data-wide title="${wide ? 'Reducir panel' : 'Ampliar panel'}"><i data-lucide="${wide ? 'minimize-2' : 'maximize-2'}"></i></button>
+          <button class="btn sm" data-pkgs title="Instalar paquetes de R en su navegador"><i data-lucide="package"></i> Paquetes</button>
           <button class="btn sm" data-stop title="Detener ejecución"><i data-lucide="square"></i></button>
         </div>
       </div>
@@ -275,6 +286,7 @@ export function setup(ctx) {
     scratch.refreshAll();
     el.querySelector('[data-wide]').onclick = () => { store.set('rav:wide', !wide); panel.refresh('mine'); };
     el.querySelector('[data-stop]').onclick = () => localRunner?.interrupt();
+    el.querySelector('[data-pkgs]').onclick = studentPackagesModal;
     el.querySelector('[data-r]').onclick = () => download(`mi_espacio_${code}_${fileStamp()}.R`, toR(scratch.list, `Mi espacio — ${S.title}`));
     el.querySelector('[data-json]').onclick = () => download(`mi_espacio_${code}_${fileStamp()}.json`, toJSON(scratch.list, `Mi espacio — ${S.title}`), 'application/json');
     el.querySelector('[data-open]').onclick = pickLocalFile;
@@ -292,6 +304,37 @@ export function setup(ctx) {
       const f = e.dataTransfer?.files?.[0];
       if (f) openLocalFile(f);
     };
+  }
+
+  // ── Paquetes en el navegador del estudiante ──
+  function studentPackagesModal() {
+    if (!S.settings.allowLocalRun) return toast('El docente desactivó la ejecución local por ahora', 'err');
+    const r = getRunner();
+    const m = modal({
+      title: 'Paquetes de R en su navegador', icon: 'package',
+      body: `
+        <p class="small muted" style="margin-top:0">Los paquetes se instalan sólo en <b>su</b> navegador, desde el repositorio de webR
+          (<a href="https://repo.r-wasm.org/" target="_blank" rel="noopener">repo.r-wasm.org</a>). Se pierden al recargar la página,
+          pero los del aula se reinstalan solos. También puede escribir <code>install.packages("nombre")</code> en una celda.</p>
+        ${S.packages?.length ? `<div class="small" style="margin-bottom:8px">Paquetes del aula (se instalan automáticamente):
+          ${S.packages.map(p => `<span class="pkg-tag">${r.installed.has(p) ? '✔ ' : ''}${esc(p)}</span>`).join('')}</div>` : ''}
+        <div class="row"><input class="input" id="spk" placeholder="ej.: ggplot2, dplyr"><button class="btn primary" id="spk-go"><i data-lucide="download"></i> Instalar</button></div>
+        <div class="log hidden" id="spk-log" style="margin-top:12px"></div>`,
+    });
+    const inp = m.el.querySelector('#spk'), log = m.el.querySelector('#spk-log'), btn = m.el.querySelector('#spk-go');
+    const go = async () => {
+      const list = inp.value.split(',').map(x => x.trim()).filter(Boolean);
+      if (!list.length) return;
+      btn.disabled = true;
+      log.classList.remove('hidden');
+      log.insertAdjacentHTML('beforeend', '<span class="info">Preparando R (la primera vez tarda unos segundos)…</span>\n');
+      await r.installPackages(list, (msg, t) => { log.insertAdjacentHTML('beforeend', `<span class="${t}">${esc(msg)}</span>\n`); log.scrollTop = log.scrollHeight; });
+      log.insertAdjacentHTML('beforeend', '<span class="info">─ Listo. Use library(nombre) en su celda.</span>\n');
+      btn.disabled = false;
+    };
+    btn.onclick = go;
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); go(); } });
+    inp.focus();
   }
 
   // ── Abrir archivos locales (.R, .Rmd, .qmd, .json, .ipynb) en «Mi espacio» ──
@@ -382,6 +425,7 @@ export function setup(ctx) {
           <li>Con <i data-lucide="send" style="width:13px;height:13px"></i> envía su código al docente para revisión.</li>
           <li><b>Abrir archivo</b> carga en «Mi espacio» un <code>.R</code>, <code>.Rmd</code>, <code>.qmd</code> o <code>.json</code> de su computadora (también puede arrastrarlo al panel). Con <b>Guardar .R / .json</b> conserva su trabajo.</li>
           <li>Haga clic en un gráfico para ampliarlo; pase el ratón para descargarlo en PNG.</li>
+          <li><b>Paquetes</b>: los que registra el docente se instalan solos en su navegador. Para otros, use el botón <b>Paquetes</b> de «Mi espacio» o escriba <code>install.packages("nombre")</code> en una celda.</li>
         </ul></div>
       <div class="panel-section"><h4>Atajos en Mi espacio</h4>
         <ul class="small" style="padding-left:18px;margin:0">

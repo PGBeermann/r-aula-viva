@@ -44,6 +44,18 @@ Navegador del DOCENTE ──(Socket.IO / WebSocket)──► Servidor Node.js �
 | Permisos: descargas, preguntas, entregas, ejecución local | |
 | Exportar: `.R`, `.json`, reporte HTML con gráficos, PDF (impresión) | |
 
+## 2.1 Paquetes de R
+
+| Quién | Cómo |
+|---|---|
+| Docente | Botón **Paquetes**: los instala en su navegador y los **registra en el aula**. |
+| Estudiante (automático) | Los paquetes registrados se instalan solos en su navegador al iniciar R en «Mi espacio», y también los que el docente registre después. |
+| Estudiante (adicionales) | Botón **Paquetes** de «Mi espacio», o `install.packages("nombre")` en una celda. |
+
+- Todos los paquetes vienen del repositorio de binarios WebAssembly de webR ([repo.r-wasm.org](https://repo.r-wasm.org/)). No todos los paquetes de CRAN están compilados allí.
+- `install.packages()` funciona porque, al iniciar R, el programa ejecuta `webr::shim_install()`, que la redirige a `webr::install()` ([documentación de webR](https://docs.r-wasm.org/webr/latest/packages.html)).
+- Los paquetes viven en la memoria del navegador: al recargar la página se pierden, y los del aula se reinstalan automáticamente.
+
 ## 3. Ejecución local (desarrollo)
 
 Requiere Node.js 20 o superior.

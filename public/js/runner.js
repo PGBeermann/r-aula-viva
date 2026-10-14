@@ -50,6 +50,9 @@ export class RRunner {
       await this.webR.init();
       // Opciones de presentación más legibles en clase
       await this.webR.evalRVoid('options(width = 90, digits = 6, warn = 1)');
+      // Permite usar install.packages("x") en las celdas: lo redirige a webr::install()
+      // (repositorio de binarios WebAssembly). Ver https://docs.r-wasm.org/webr/latest/packages.html
+      try { await this.webR.evalRVoid('webr::shim_install()'); } catch { /* versión sin shim */ }
       this.onStatus('ready', 'R listo');
       return this;
     })().catch(err => {
@@ -120,8 +123,9 @@ export class RRunner {
       try {
         await this.webR.installPackages([p], { mount: true, quiet: true });
         // Verificar que realmente quedó disponible
-        const ok = await this.webR.evalRBoolean(`requireNamespace("${p.replace(/[^A-Za-z0-9.]/g, '')}", quietly = TRUE)`);
-        if (!ok) throw new Error('el paquete no está disponible para webR');
+        const name = p.replace(/[^A-Za-z0-9.]/g, '');
+        const ok = await this.webR.evalRString(`if (isTRUE(suppressWarnings(requireNamespace("${name}", quietly = TRUE)))) "si" else "no"`);
+        if (ok !== 'si') throw new Error('no se pudo instalar: verifique el nombre, que exista en repo.r-wasm.org y su conexión a internet');
         this.installed.add(p);
         done.push(p);
         log(`✔ «${p}» instalado.`, 'ok');
