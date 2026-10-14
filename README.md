@@ -89,7 +89,7 @@ TEACHER_PASSWORD=una-clave SESSION_SECRET=algo-largo npm start
    SESSION_SECRET=<salida de: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))">
    PUBLIC_URL=https://raula.sudominio.com
    ```
-5. **Advanced → Mounts → Add Volume:** *Volume Mount*, Volume Name `raula-data`, **Mount Path `/app/data`**. Sin este volumen, las aulas y la biblioteca se pierden en cada despliegue.
+5. **Advanced → (desplazarse hacia abajo) sección «Volumes» → Add Volume:** tipo *Volume Mount*, Volume Name `raula-data`, **Mount Path `/app/data`**. Guarde y vuelva a desplegar (*Redeploy*). Sin este volumen, las aulas y la biblioteca se pierden en cada despliegue. (En la documentación de Dokploy la sección se llama «Volumes/Mounts».)
 6. **Domains → Add Domain:** Host `raula.sudominio.com`, Path `/`, **Container Port `3000`**, HTTPS activado y Certificate `letsencrypt`.
 7. **Deploy.** Después revise **Logs**. Deben aparecer las líneas `R Aula Viva escuchando en http://0.0.0.0:3000` y `Aulas cargadas: N`.
 8. Pruebe `https://raula.sudominio.com/health`. Debe devolver `{"ok":true,…}`.
