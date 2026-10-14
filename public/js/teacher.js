@@ -482,7 +482,7 @@ export function setup(ctx) {
       log.insertAdjacentHTML('beforeend', '<span class="info">─ Listo.</span>\n');
     };
     m.el.querySelector('#pk-go').onclick = go;
-    m.el.querySelector('#pk').onkeydown = e => e.key === 'Enter' && go();
+    m.el.querySelector('#pk').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); go(); } });
     m.el.querySelector('#pk').focus();
   }
 
